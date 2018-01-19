@@ -3,22 +3,38 @@ using GLVisualize, GeometryTypes, Colors
 import GLVisualize: mm, Screen, labeled_slider, play_slider, center!
 using Geodesy, MAT
 
-export testscene, rgbaxis, loaddata
+export init, main
 
 datafile = Pkg.dir("UAVisualization" * "/tools/data.mat")
 
-function rgbaxis(scene, x, y, z)
+function init()
+	global window
+	window = glscreen("UAVisualization")
+	window
+end
+
+function rgbaxis()
 	scale = 10
 	origin = Point3f0(0, 0, 0)
 	ptx = origin + Point3f0(scale, 0, 0)
 	pty = origin + Point3f0(0, scale, 0)
 	ptz = origin + Point3f0(0, 0, scale)
-	for (pt, color) in ((ptx, :red), (pty, :green), (ptz, :blue))
-		linesegment([origin, pt], color=color, linewidth=4)
-	end
+	colors = RGBA{Float32}[
+        RGBA{Float32}(1,0,0,1),
+        RGBA{Float32}(1,0,0,1),
+
+        RGBA{Float32}(0,1,0,1),
+        RGBA{Float32}(0,1,0,1),
+
+        RGBA{Float32}(0,0,1,1),
+        RGBA{Float32}(0,0,1,1),
+	]
+	lines = [origin, ptx, origin, pty, origin, ptz]
+	return visualize(lines, :linesegment, color=colors)
 end
 
 function loaddata()
+	# TODO: if data file doesn't exist generate some fake data
 	vars = matread(datafile)
 	alt = vars["alt"]
 	#@show length(alt)
@@ -26,22 +42,22 @@ function loaddata()
 	alt = alt[.!alt_nans]
 	#@show length(alt)
 	t = vars["t"][.!alt_nans]
-	lat = rad2deg(vars["lat"][.!alt_nans])
-	lon = rad2deg(vars["lon"][.!alt_nans])
+	lat = rad2deg.(vars["lat"][.!alt_nans])
+	lon = rad2deg.(vars["lon"][.!alt_nans])
 	lla = LLA.(lat, lon, alt)
 	trans = ENUfromLLA(lla[1], wgs84)
 	enu = trans.(lla)
 	return t - t[1], enu
 end
 
-function testscene()
-	window = glscreen("UAVisualization")
+function main()
 
 	t, enu = loaddata()
 	# @show t
 	# @show enu
 
 	pos = i -> begin
+		@show t[i]
 		foo = Point3f0(enu[i]...)
 	end
 
@@ -68,6 +84,7 @@ function testscene()
 	_view(vehmarker, view_screen, camera = :perspective)
 	_view(visualize(controls, text_scale = 4mm, width = 8*iconsize), edit_screen, camera = :fixed_pixel)
 	_view(enutraj, view_screen, camera = :perspective)
+	_view(rgbaxis(), view_screen, camera = :perspective)
 
 	center!(view_screen, :perspective)
 	renderloop(window)
